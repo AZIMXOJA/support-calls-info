@@ -142,6 +142,15 @@
   .spinner{width:32px;height:32px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);animation:spin .7s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
   .empty{padding:28px;text-align:center;color:var(--muted);font-size:13px}
+
+  .access-denied {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; min-height: 100vh; padding: 32px;
+    text-align: center; gap: 16px;
+  }
+  .access-denied .icon { font-size: 64px; }
+  .access-denied h2 { font-size: 20px; font-weight: 700; color: var(--red); }
+  .access-denied p { color: var(--muted); font-size: 14px; line-height: 1.5; }
 </style>
 </head>
 <body>
@@ -200,6 +209,12 @@
 const tg = window.Telegram?.WebApp;
 if(tg){tg.ready();tg.expand();}
 
+// Auth headers for API requests
+function authHeaders() {
+  const initData = tg?.initData || '';
+  return { 'X-Init-Data': initData };
+}
+
 let currentPeriod = 'today';
 let currentData   = null;
 let charts        = {};
@@ -242,12 +257,28 @@ function showPage(name, el){
 
 // ── Load ──
 async function loadData(){
+  // Check access first
+  if(tg && !tg.initData) {
+    document.querySelector('.content').innerHTML =
+      '<div class="access-denied"><div class="icon">⛔</div>' +
+      '<h2>Нет доступа</h2>' +
+      '<p>Этот дашборд доступен только через Telegram бота.</p></div>';
+    return;
+  }
   setLoading();
   try{
     const url = currentPeriod.startsWith('custom')
       ? `/api/report?${currentPeriod.slice(7)}`
       : `/api/report?period=${currentPeriod}`;
-    const res = await fetch(url);
+    const res = await fetch(url, { headers: authHeaders() });
+    if(res.status === 403) {
+      const err = await res.json().catch(()=>({detail:'Нет доступа'}));
+      document.getElementById('overviewContent').innerHTML=
+        '<div class="access-denied"><div class="icon">⛔</div>' +
+        '<h2>Нет доступа</h2>' +
+        '<p>' + (err.detail||'Обратитесь к администратору') + '</p></div>';
+      return;
+    }
     currentData = await res.json();
     renderAll();
   }catch(e){
@@ -570,7 +601,7 @@ function renderMissed(){
 async function loadCompare(){
   document.getElementById('compareContent').innerHTML='<div class="loading"><div class="spinner"></div></div>';
   try{
-    const res  = await fetch('/api/compare?period1=this_week&period2=last_week');
+    const res  = await fetch('/api/compare?period1=this_week&period2=last_week', { headers: authHeaders() });
     const data = await res.json();
     renderCompare(data);
   }catch(e){
