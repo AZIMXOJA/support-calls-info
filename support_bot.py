@@ -30,6 +30,9 @@ AGENT_NAMES = {
 # Номер переадресации пропущенных
 REDIRECT_NUMBER = "5203"
 
+# Разрешённые пользователи (username без @)
+ALLOWED_USERS = {"azim_gws", "Svetlana_Tsoy_Smartup", "bts_lily"}
+
 # URL Mini App (ngrok)
 MINI_APP_URL = "https://support-calls-info.onrender.com"
 
@@ -319,8 +322,18 @@ def get_report(start: datetime, end: datetime, label: str, date_range: str) -> s
 
 # ── Handlers ─────────────────────────────
 
+def is_allowed(msg) -> bool:
+    username = (msg.from_user.username or "").lower()
+    return username in {u.lower() for u in ALLOWED_USERS}
+
+def access_denied_text():
+    return "⛔ У вас нет доступа к этому боту."
+
 @dp.message(CommandStart())
 async def h_start(msg: Message, state: FSMContext):
+    if not is_allowed(msg):
+        await msg.answer(access_denied_text())
+        return
     await state.clear()
     await msg.answer(
         f"👋 Привет, <b>{msg.from_user.first_name}</b>!\n\n"
@@ -330,12 +343,18 @@ async def h_start(msg: Message, state: FSMContext):
 
 @dp.callback_query(F.data == "back")
 async def h_back(call: CallbackQuery, state: FSMContext):
+    if not is_allowed(call):
+        await call.answer("⛔ Нет доступа", show_alert=True)
+        return
     await state.clear()
     await call.message.edit_text("Выбери действие:", reply_markup=kb_main())
     await call.answer()
 
 @dp.callback_query(F.data == "menu")
 async def h_menu(call: CallbackQuery, state: FSMContext):
+    if not is_allowed(call):
+        await call.answer("⛔ Нет доступа", show_alert=True)
+        return
     await state.clear()
     await call.message.edit_text(
         "📊 <b>Отчёт по звонкам — Support</b>\n\nВыбери период:",
@@ -345,6 +364,9 @@ async def h_menu(call: CallbackQuery, state: FSMContext):
 
 @dp.callback_query(F.data.startswith("p:") & ~F.data.in_({"p:custom"}))
 async def h_period(call: CallbackQuery):
+    if not is_allowed(call):
+        await call.answer("⛔ Нет доступа", show_alert=True)
+        return
     key = call.data[2:]
     start, end, label, date_range = period_dates(key)
     await call.message.edit_text(
@@ -362,6 +384,9 @@ async def h_period(call: CallbackQuery):
 
 @dp.callback_query(F.data == "p:custom")
 async def h_custom(call: CallbackQuery, state: FSMContext):
+    if not is_allowed(call):
+        await call.answer("⛔ Нет доступа", show_alert=True)
+        return
     await state.set_state(Range.start)
     await call.message.edit_text(
         "🗓 <b>Свой диапазон</b>\n\n"
