@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Support Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0f1117; --bg2:#171b26; --bg3:#1e2333;
+    --border:rgba(255,255,255,0.07);
+    --text:#e8eaf0; --muted:#6b7280;
+    --accent:#4f8ef7; --accent2:#7c5af7;
+    --green:#34d399; --red:#f87171; --yellow:#fbbf24; --orange:#fb923c;
+    --radius:16px; --radius-sm:10px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg);color:var(--text);font-family:'Geologica',sans-serif;font-size:14px;min-height:100vh;padding-bottom:80px}
+
+  /* Header */
+  .header{background:linear-gradient(135deg,#1a1f35,#0f1117);border-bottom:1px solid var(--border);padding:14px 16px 12px;position:sticky;top:0;z-index:100;backdrop-filter:blur(12px)}
+  .header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .header h1{font-size:17px;font-weight:700;letter-spacing:-.3px}
+  .header h1 span{color:var(--accent)}
+  .live-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+  /* Tabs */
+  .tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{flex-shrink:0;padding:6px 13px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-size:12px;font-weight:500;cursor:pointer;transition:all .2s;font-family:inherit;white-space:nowrap}
+  .tab.active{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 0 16px rgba(79,142,247,.35)}
+
+  /* Date inputs */
+  .date-inputs{display:none;gap:8px;padding:10px 0 2px;flex-wrap:wrap}
+  .date-inputs.visible{display:flex}
+  .date-input{flex:1;min-width:130px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);padding:7px 11px;font-size:13px;font-family:inherit;outline:none}
+  .date-input:focus{border-color:var(--accent)}
+  .date-btn{width:100%;padding:8px;background:var(--accent);border:none;border-radius:var(--radius-sm);color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer}
+
+  /* Nav */
+  .nav{display:flex;background:var(--bg2);border-top:1px solid var(--border);position:fixed;bottom:0;left:0;right:0;z-index:100}
+  .nav-item{flex:1;padding:9px 4px 7px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;transition:color .2s;color:var(--muted);font-size:9px;font-weight:500}
+  .nav-item .ni{font-size:17px}
+  .nav-item.active{color:var(--accent)}
+
+  /* Content */
+  .content{padding:14px 14px 0}
+  .page{display:none}
+  .page.active{display:block}
+
+  /* Cards */
+  .cards-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:9px}
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:13px 14px;position:relative;overflow:hidden;transition:transform .15s}
+  .card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--card-accent,var(--accent));border-radius:var(--radius) var(--radius) 0 0}
+  .card:active{transform:scale(.97)}
+  .card-wide{grid-column:1/-1}
+  .card-label{font-size:10px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px}
+  .card-value{font-size:26px;font-weight:700;font-family:'JetBrains Mono',monospace;line-height:1;letter-spacing:-1px}
+  .card-sub{font-size:11px;color:var(--muted);margin-top:4px}
+  .card-sub b{color:var(--text);font-weight:600}
+  .c-blue{--card-accent:var(--accent)} .c-purple{--card-accent:var(--accent2)}
+  .c-green{--card-accent:var(--green)} .c-red{--card-accent:var(--red)}
+  .c-yellow{--card-accent:var(--yellow)} .c-orange{--card-accent:var(--orange)}
+
+  /* Section */
+  .section{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:9px;overflow:hidden}
+  .section-header{padding:12px 14px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+  .section-title{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
+  .section-badge{font-size:10px;padding:2px 8px;border-radius:10px;background:var(--bg3);color:var(--muted);font-family:'JetBrains Mono',monospace}
+  .chart-wrap{padding:14px}
+  .chart-wrap canvas{max-height:170px}
+
+  /* Agent table */
+  .agent-header{padding:5px 14px;display:grid;grid-template-columns:20px 1fr auto auto auto;gap:8px;background:var(--bg3)}
+  .agent-header span{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;text-align:right}
+  .agent-header span:nth-child(2){text-align:left}
+  .agent-row{display:grid;grid-template-columns:20px 1fr auto auto auto;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s}
+  .agent-row:last-child{border-bottom:none}
+  .agent-row:active{background:var(--bg3)}
+  .agent-num{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;text-align:center}
+  .agent-name{font-size:12px;font-weight:500}
+  .agent-stat{font-size:12px;font-family:'JetBrains Mono',monospace;text-align:right}
+  .agent-stat.inc{color:var(--accent)} .agent-stat.out{color:var(--accent2)} .agent-stat.total{color:var(--text);font-weight:600}
+
+  /* Agent modal */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:flex-end}
+  .modal-overlay.open{display:flex}
+  .modal{background:var(--bg2);border-radius:20px 20px 0 0;padding:20px 18px 32px;width:100%;border-top:1px solid var(--border);animation:slideUp .25s ease}
+  @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  .modal-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px}
+  .modal-title{font-size:17px;font-weight:700;margin-bottom:4px}
+  .modal-sub{font-size:12px;color:var(--muted);margin-bottom:16px}
+  .modal-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px}
+  .modal-stat{background:var(--bg3);border-radius:var(--radius-sm);padding:10px;text-align:center}
+  .modal-stat-val{font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace}
+  .modal-stat-lbl{font-size:10px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.4px}
+  .modal-rating{display:flex;align-items:center;gap:10px;background:var(--bg3);border-radius:var(--radius-sm);padding:12px 14px}
+  .modal-stars{font-size:18px;letter-spacing:2px}
+  .modal-rating-text{font-size:12px;color:var(--muted)}
+  .modal-rating-text b{color:var(--text)}
+  .modal-close{position:absolute;top:16px;right:16px;background:var(--bg3);border:none;color:var(--muted);width:28px;height:28px;border-radius:50%;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+
+  /* Missed */
+  .missed-item{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-bottom:1px solid var(--border)}
+  .missed-item:last-child{border-bottom:none}
+  .missed-caller{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600}
+  .missed-time{font-size:10px;color:var(--muted);margin-top:2px}
+  .badge{font-size:10px;padding:3px 9px;border-radius:10px;font-weight:500}
+  .badge.ok{background:rgba(52,211,153,.15);color:var(--green)}
+  .badge.fail{background:rgba(248,113,113,.15);color:var(--red)}
+
+  /* Compare */
+  .compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border)}
+  .compare-col{background:var(--bg2);padding:12px 14px}
+  .compare-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;font-weight:600}
+  .compare-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px}
+  .compare-row:last-child{border-bottom:none}
+  .compare-row .lbl{color:var(--muted)}
+  .compare-row .val{font-family:'JetBrains Mono',monospace;font-weight:600}
+  .delta-up{color:var(--green)} .delta-down{color:var(--red)}
+
+  /* Quality */
+  .quality-list{padding:10px 14px}
+  .quality-row{display:flex;align-items:center;gap:10px;margin-bottom:7px}
+  .quality-row:last-child{margin-bottom:0}
+  .quality-stars{font-size:11px;width:58px;flex-shrink:0}
+  .quality-bar-wrap{flex:1;background:var(--bg3);border-radius:4px;height:5px;overflow:hidden}
+  .quality-bar{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .6s ease}
+  .quality-count{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--muted);width:28px;text-align:right}
+
+  /* Rating row */
+  .rating-row{display:grid;grid-template-columns:20px 1fr auto auto;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--border)}
+  .rating-row:last-child{border-bottom:none}
+  .rating-stars{font-size:11px;color:var(--yellow)}
+  .rating-score{font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--yellow);font-weight:700}
+  .rating-cnt{font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+
+  /* Loading / empty */
+  .loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:50px 20px;gap:12px;color:var(--muted)}
+  .spinner{width:32px;height:32px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .empty{padding:28px;text-align:center;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <h1>Support <span>Dashboard</span></h1>
+    <div class="live-dot"></div>
+  </div>
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-period="today">Сегодня</button>
+    <button class="tab" data-period="yesterday">Вчера</button>
+    <button class="tab" data-period="week">Эта неделя</button>
+    <button class="tab" data-period="month">Этот месяц</button>
+    <button class="tab" data-period="custom">📅 Диапазон</button>
+  </div>
+  <div class="date-inputs" id="dateInputs">
+    <input type="date" class="date-input" id="dateFrom">
+    <input type="date" class="date-input" id="dateTo">
+    <button class="date-btn" onclick="loadCustom()">Показать</button>
+  </div>
+</div>
+
+<div class="nav">
+  <div class="nav-item active" onclick="showPage('overview',this)"><span class="ni">📊</span>Сводка</div>
+  <div class="nav-item" onclick="showPage('agents',this)"><span class="ni">👥</span>Агенты</div>
+  <div class="nav-item" onclick="showPage('missed',this)"><span class="ni">🚨</span>Пропущ.</div>
+  <div class="nav-item" onclick="showPage('compare',this)"><span class="ni">⚖️</span>Сравнение</div>
+</div>
+
+<div class="content">
+  <div class="page active" id="page-overview">
+    <div id="overviewContent"><div class="loading"><div class="spinner"></div><span>Загружаю...</span></div></div>
+  </div>
+  <div class="page" id="page-agents">
+    <div id="agentsContent"><div class="loading"><div class="spinner"></div></div></div>
+  </div>
+  <div class="page" id="page-missed">
+    <div id="missedContent"><div class="loading"><div class="spinner"></div></div></div>
+  </div>
+  <div class="page" id="page-compare">
+    <div id="compareContent"></div>
+  </div>
+</div>
+
+<!-- Agent Modal -->
+<div class="modal-overlay" id="agentModal" onclick="closeModal(event)">
+  <div class="modal" style="position:relative">
+    <div class="modal-handle"></div>
+    <button class="modal-close" onclick="closeAgentModal()">✕</button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script>
+const tg = window.Telegram?.WebApp;
+if(tg){tg.ready();tg.expand();}
+
+let currentPeriod = 'today';
+let currentData   = null;
+let charts        = {};
+
+// ── Tabs ──
+document.getElementById('tabs').addEventListener('click', e => {
+  const tab = e.target.closest('.tab');
+  if(!tab) return;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  tab.classList.add('active');
+  const p = tab.dataset.period;
+  const inp = document.getElementById('dateInputs');
+  if(p==='custom'){inp.classList.add('visible');return;}
+  inp.classList.remove('visible');
+  currentPeriod = p;
+  loadData();
+});
+
+function loadCustom(){
+  const f = document.getElementById('dateFrom').value;
+  const t = document.getElementById('dateTo').value;
+  if(!f||!t) return;
+  currentPeriod = `custom&start=${f}&end=${t}`;
+  loadData();
+}
+
+// ── Pages ──
+function showPage(name, el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  el.classList.add('active');
+  if(name==='compare' && !document.getElementById('compareContent').innerHTML.includes('section')) loadCompare();
+  if(currentData){
+    if(name==='overview') renderOverview();
+    if(name==='agents')   renderAgents();
+    if(name==='missed')   renderMissed();
+  }
+}
+
+// ── Load ──
+async function loadData(){
+  setLoading();
+  try{
+    const url = currentPeriod.startsWith('custom')
+      ? `/api/report?${currentPeriod.slice(7)}`
+      : `/api/report?period=${currentPeriod}`;
+    const res = await fetch(url);
+    currentData = await res.json();
+    renderAll();
+  }catch(e){
+    document.getElementById('overviewContent').innerHTML='<div class="empty">❌ Ошибка загрузки</div>';
+  }
+}
+
+function setLoading(){
+  const s='<div class="loading"><div class="spinner"></div><span>Загружаю...</span></div>';
+  ['overviewContent','agentsContent','missedContent'].forEach(id=>document.getElementById(id).innerHTML=s);
+}
+
+function fmtSec(s){
+  s=Math.round(s);
+  if(s<60) return s+' сек';
+  return Math.floor(s/60)+' мин '+(s%60)+' сек';
+}
+
+function destroyChart(key){
+  if(charts[key]){charts[key].destroy();delete charts[key];}
+}
+
+function renderAll(){renderOverview();renderAgents();renderMissed();}
+
+// ── OVERVIEW ──
+function renderOverview(){
+  if(!currentData) return;
+  const d = currentData.summary;
+  const q = currentData.quality || [];
+
+  const qualityHTML = q.length ? q.slice().reverse().map(item=>{
+    const maxQ = Math.max(...q.map(x=>x.count));
+    const pct  = maxQ ? Math.round(item.count/maxQ*100) : 0;
+    const stars = '★'.repeat(item.score)+'☆'.repeat(5-item.score);
+    return `<div class="quality-row">
+      <div class="quality-stars">${stars}</div>
+      <div class="quality-bar-wrap"><div class="quality-bar" style="width:${pct}%"></div></div>
+      <div class="quality-count">${item.count}</div>
+    </div>`;
+  }).join('') : '<div class="empty" style="padding:10px">Нет оценок</div>';
+
+  document.getElementById('overviewContent').innerHTML = `
+    <div class="cards-grid">
+      <div class="card c-blue">
+        <div class="card-label">Всего звонков</div>
+        <div class="card-value">${d.total}</div>
+        <div class="card-sub">📥 <b>${d.incoming}</b> &nbsp; 📤 <b>${d.outgoing}</b></div>
+      </div>
+      <div class="card c-red">
+        <div class="card-label">Пропущенные</div>
+        <div class="card-value">${d.missed}</div>
+        <div class="card-sub">❌ не перезв: <b>${d.missed_fail}</b></div>
+      </div>
+      <div class="card c-green">
+        <div class="card-label">Обработано</div>
+        <div class="card-value">${d.cb_pct}<span style="font-size:14px;color:var(--muted)">%</span></div>
+        <div class="card-sub">✅ перезв: <b>${d.missed_ok}</b></div>
+      </div>
+      <div class="card c-yellow">
+        <div class="card-label">Ср. разговор</div>
+        <div class="card-value" style="font-size:17px;margin-top:4px">${fmtSec(d.avg_talk)}</div>
+        <div class="card-sub">⏳ ожид: <b>${fmtSec(d.avg_wait)}</b></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title"><span>📈</span>Звонки по часам</div>
+      </div>
+      <div class="chart-wrap"><canvas id="hourChart"></canvas></div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title"><span>📅</span>Звонки по дням недели</div>
+      </div>
+      <div class="chart-wrap"><canvas id="dayChart"></canvas></div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title"><span>🚨</span>Пропущенные по часам</div>
+      </div>
+      <div class="chart-wrap"><canvas id="missedHourChart"></canvas></div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title"><span>⭐</span>Оценки качества</div>
+        <div class="section-badge">${d.rated} оценок</div>
+      </div>
+      <div class="quality-list">${qualityHTML}</div>
+    </div>`;
+
+  renderHourChart();
+  renderDayChart();
+  renderMissedHourChart();
+}
+
+function makeChartOptions(color){
+  return {
+    responsive:true, maintainAspectRatio:true,
+    plugins:{legend:{labels:{color:'#6b7280',font:{size:10},boxWidth:10,padding:8}}},
+    scales:{
+      x:{ticks:{color:'#6b7280',font:{size:9}},grid:{color:'rgba(255,255,255,0.04)'}},
+      y:{ticks:{color:'#6b7280',font:{size:9}},grid:{color:'rgba(255,255,255,0.04)'}}
+    }
+  };
+}
+
+function renderHourChart(){
+  destroyChart('hour');
+  const ctx = document.getElementById('hourChart'); if(!ctx) return;
+  const h = currentData.hours;
+  charts['hour'] = new Chart(ctx,{type:'bar',data:{
+    labels:h.map(x=>x.hour+':00'),
+    datasets:[
+      {label:'Входящие',data:h.map(x=>x.inc),backgroundColor:'rgba(79,142,247,0.75)',borderRadius:3},
+      {label:'Исходящие',data:h.map(x=>x.out),backgroundColor:'rgba(124,90,247,0.75)',borderRadius:3},
+      {label:'Пропущ.',data:h.map(x=>x.missed),backgroundColor:'rgba(248,113,113,0.75)',borderRadius:3},
+    ]},options:makeChartOptions()});
+}
+
+function renderDayChart(){
+  destroyChart('day');
+  const ctx = document.getElementById('dayChart'); if(!ctx) return;
+  const days = currentData.days || [];
+  charts['day'] = new Chart(ctx,{type:'bar',data:{
+    labels:days.map(d=>d.day),
+    datasets:[
+      {label:'Входящие',data:days.map(d=>d.inc),backgroundColor:'rgba(79,142,247,0.75)',borderRadius:4},
+      {label:'Исходящие',data:days.map(d=>d.out),backgroundColor:'rgba(124,90,247,0.75)',borderRadius:4},
+      {label:'Пропущ.',data:days.map(d=>d.missed),backgroundColor:'rgba(248,113,113,0.75)',borderRadius:4},
+    ]},options:makeChartOptions()});
+}
+
+function renderMissedHourChart(){
+  destroyChart('missedHour');
+  const ctx = document.getElementById('missedHourChart'); if(!ctx) return;
+  const mh = currentData.missed_hours || [];
+  const maxVal = Math.max(...mh.map(x=>x.missed),1);
+  charts['missedHour'] = new Chart(ctx,{type:'bar',data:{
+    labels:mh.map(x=>x.hour+':00'),
+    datasets:[{
+      label:'Пропущенные',
+      data:mh.map(x=>x.missed),
+      backgroundColor:mh.map(x=>{
+        const intensity = x.missed/maxVal;
+        return `rgba(248,113,113,${0.3+intensity*0.6})`;
+      }),
+      borderRadius:3,
+    }]},
+    options:{...makeChartOptions(),plugins:{legend:{display:false}}}
+  });
+}
+
+// ── AGENTS ──
+function renderAgents(){
+  if(!currentData) return;
+  const agents = currentData.agents || [];
+  if(!agents.length){
+    document.getElementById('agentsContent').innerHTML='<div class="empty">Нет данных</div>';
+    return;
+  }
+
+  // Agent comparison bar chart data
+  const top8 = agents.slice(0,8);
+
+  const rows = agents.map((a,i)=>`
+    <div class="agent-row" onclick="openAgent(${i})">
+      <div class="agent-num">${i+1}</div>
+      <div class="agent-name">${a.name}</div>
+      <div class="agent-stat inc">${a.incoming}</div>
+      <div class="agent-stat out">${a.outgoing}</div>
+      <div class="agent-stat total">${a.total}</div>
+    </div>`).join('');
+
+  // Rating leaderboard
+  const ratingAgents = agents
+    .filter(a=> a.rating_count > 0)
+    .sort((a,b)=>(b.avg_rating||0)-(a.avg_rating||0));
+
+  const ratingHTML = ratingAgents.length ? ratingAgents.map((a,i)=>{
+    const r = a.avg_rating || 0;
+    const full = Math.round(r);
+    const stars = '★'.repeat(full)+'☆'.repeat(5-full);
+    return `<div class="rating-row">
+      <div class="agent-num">${i+1}</div>
+      <div class="agent-name">${a.name}<br><span style="font-size:10px;color:var(--muted)">${a.rating_count} оц.</span></div>
+      <div class="rating-stars">${stars}</div>
+      <div class="rating-score">${r.toFixed(1)}</div>
+    </div>`;
+  }).join('') : '<div class="empty" style="padding:10px">Нет оценок за период</div>';
+
+  document.getElementById('agentsContent').innerHTML = `
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title"><span>📊</span>Сравнение агентов</div>
+        <div class="section-badge">топ 8</div>
+      </div>
+      <div class="chart-wrap"><canvas id="agentChart"></canvas></div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title"><span>👥</span>Все агенты</div>
+        <div class="section-badge">${agents.length} чел.</div>
+      </div>
+      <div class="agent-header">
+        <span></span><span>Имя</span>
+        <span style="color:var(--accent)">Вх</span>
+        <span style="color:var(--accent2)">Исх</span>
+        <span>∑</span>
+      </div>
+      ${rows}
+    </div>
+
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title"><span>⭐</span>Рейтинг по оценкам</div>
+      </div>
+      ${ratingHTML}
+    </div>`;
+
+  renderAgentChart(top8);
+}
+
+function renderAgentChart(agents){
+  destroyChart('agent');
+  const ctx = document.getElementById('agentChart'); if(!ctx) return;
+  const names = agents.map(a=>a.name.split(' ')[0]);
+  charts['agent'] = new Chart(ctx,{type:'bar',data:{
+    labels:names,
+    datasets:[
+      {label:'Входящие',data:agents.map(a=>a.incoming),backgroundColor:'rgba(79,142,247,0.8)',borderRadius:4},
+      {label:'Исходящие',data:agents.map(a=>a.outgoing),backgroundColor:'rgba(124,90,247,0.8)',borderRadius:4},
+    ]},options:makeChartOptions()});
+}
+
+// ── Agent Modal ──
+function openAgent(idx){
+  const a = currentData.agents[idx];
+  if(!a) return;
+  const stars = a.avg_rating ? '★'.repeat(Math.round(a.avg_rating))+'☆'.repeat(5-Math.round(a.avg_rating)) : '—';
+  document.getElementById('modalContent').innerHTML = `
+    <div class="modal-title">${a.name}</div>
+    <div class="modal-sub">📞 Внутренний номер: ${a.number}</div>
+    <div class="modal-stats">
+      <div class="modal-stat">
+        <div class="modal-stat-val" style="color:var(--accent)">${a.incoming}</div>
+        <div class="modal-stat-lbl">Входящих</div>
+      </div>
+      <div class="modal-stat">
+        <div class="modal-stat-val" style="color:var(--accent2)">${a.outgoing}</div>
+        <div class="modal-stat-lbl">Исходящих</div>
+      </div>
+      <div class="modal-stat">
+        <div class="modal-stat-val">${a.total}</div>
+        <div class="modal-stat-lbl">Всего</div>
+      </div>
+    </div>
+    <div class="modal-rating">
+      <div>
+        <div class="modal-stars" style="color:var(--yellow)">${stars}</div>
+        <div class="modal-rating-text">Средняя оценка: <b>${a.avg_rating?.toFixed(1)||'нет оценок'}</b></div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--yellow)">${a.rating_count||0}</div>
+        <div class="modal-rating-text">оценок</div>
+      </div>
+    </div>`;
+  document.getElementById('agentModal').classList.add('open');
+}
+
+function closeModal(e){
+  if(e.target===document.getElementById('agentModal')) closeAgentModal();
+}
+function closeAgentModal(){
+  document.getElementById('agentModal').classList.remove('open');
+}
+
+// ── MISSED ──
+function renderMissed(){
+  if(!currentData) return;
+  const list = currentData.missed_list || [];
+  const d    = currentData.summary;
+
+  const items = list.length ? list.map(m=>`
+    <div class="missed-item">
+      <div>
+        <div class="missed-caller">${m.caller}</div>
+        <div class="missed-time">${m.time}</div>
+      </div>
+      <div class="badge ${m.called_back?'ok':'fail'}">${m.called_back?'✅ Перезвонили':'❌ Не перезвонили'}</div>
+    </div>`).join('')
+    : '<div class="empty">Нет необработанных 🎉</div>';
+
+  document.getElementById('missedContent').innerHTML = `
+    <div class="cards-grid" style="margin-bottom:9px">
+      <div class="card c-red">
+        <div class="card-label">Пропущено</div>
+        <div class="card-value">${d.missed}</div>
+      </div>
+      <div class="card c-green">
+        <div class="card-label">Обработано</div>
+        <div class="card-value">${d.cb_pct}<span style="font-size:13px;color:var(--muted)">%</span></div>
+        <div class="card-sub">✅ <b>${d.missed_ok}</b> &nbsp; ❌ <b>${d.missed_fail}</b></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title"><span>🚨</span>Не перезвонили</div>
+        <div class="section-badge">${d.missed_fail}</div>
+      </div>
+      ${items}
+    </div>`;
+}
+
+// ── COMPARE ──
+async function loadCompare(){
+  document.getElementById('compareContent').innerHTML='<div class="loading"><div class="spinner"></div></div>';
+  try{
+    const res  = await fetch('/api/compare?period1=this_week&period2=last_week');
+    const data = await res.json();
+    renderCompare(data);
+  }catch(e){
+    document.getElementById('compareContent').innerHTML='<div class="empty">❌ Ошибка</div>';
+  }
+}
+
+function renderCompare(data){
+  const p1=data.period1.data, p2=data.period2.data;
+  const metrics=[
+    {key:'total',label:'Всего звонков'},
+    {key:'incoming',label:'Входящих'},
+    {key:'outgoing',label:'Исходящих'},
+    {key:'missed',label:'Пропущенных'},
+    {key:'cb_pct',label:'Обработано %',suffix:'%'},
+    {key:'avg_talk',label:'Ср. разговор',fmt:fmtSec},
+  ];
+  const labels={'this_week':'Эта неделя','last_week':'Прошлая неделя'};
+  const fmt=(m,v)=>m.fmt?m.fmt(v):(m.suffix?v+m.suffix:v);
+
+  const makeCol=(p,isRight)=>metrics.map(m=>{
+    const v=p[m.key], d=isRight?(p1[m.key]-v):0;
+    const cls=isRight?(d>0?'delta-up':d<0?'delta-down':''):'';
+    return `<div class="compare-row"><span class="lbl">${m.label}</span><span class="val ${cls}">${fmt(m,v)}</span></div>`;
+  }).join('');
+
+  document.getElementById('compareContent').innerHTML=`
+    <div class="section" style="margin-bottom:9px">
+      <div class="section-header">
+        <div class="section-title"><span>⚖️</span>Неделя к неделе</div>
+      </div>
+      <div class="compare-grid">
+        <div class="compare-col">
+          <div class="compare-label" style="color:var(--accent)">${labels[data.period1.label]||data.period1.label}</div>
+          ${makeCol(p1,false)}
+        </div>
+        <div class="compare-col">
+          <div class="compare-label" style="color:var(--accent2)">${labels[data.period2.label]||data.period2.label}</div>
+          ${makeCol(p2,true)}
+        </div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title"><span>📊</span>Визуальное сравнение</div>
+      </div>
+      <div class="chart-wrap"><canvas id="compareChart"></canvas></div>
+    </div>`;
+
+  // Comparison chart
+  destroyChart('compare');
+  const ctx=document.getElementById('compareChart');
+  if(ctx){
+    const labels2=['Всего','Входящих','Исходящих','Пропущ.'];
+    charts['compare']=new Chart(ctx,{type:'bar',data:{
+      labels:labels2,
+      datasets:[
+        {label:'Эта неделя',data:[p1.total,p1.incoming,p1.outgoing,p1.missed],backgroundColor:'rgba(79,142,247,0.8)',borderRadius:4},
+        {label:'Прошлая',data:[p2.total,p2.incoming,p2.outgoing,p2.missed],backgroundColor:'rgba(124,90,247,0.5)',borderRadius:4},
+      ]},options:makeChartOptions()});
+  }
+}
+
+// ── Start ──
+loadData();
+</script>
+</body>
+</html>
