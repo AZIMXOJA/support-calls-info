@@ -42,6 +42,8 @@ AGENT_NAMES = {
 REDIRECT_NUMBER = "5203"
 
 ALLOWED_USERS = {"azim_gws", "Svetlana_Tsoy_Smartup", "bts_lily"}
+# Fallback: разрешить по user_id (найди свой id через @userinfobot в Telegram)
+ALLOWED_IDS: set = {104419897}  # azim_gws
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 SUPPORT_NUMBERS = set(AGENT_NAMES.keys())
 ANSWERED        = {"NORMAL_CLEARING", "NORMAL_UNSPECIFIED"}
@@ -49,22 +51,30 @@ ANSWERED        = {"NORMAL_CLEARING", "NORMAL_UNSPECIFIED"}
 # ── Auth ─────────────────────────────────
 
 def verify_init_data(init_data: str):
-    """Извлекает username из initData Telegram"""
+    """Извлекает username и user_id из initData Telegram"""
     if not init_data:
-        return None
+        return None, None
     try:
         parsed = dict(urllib.parse.parse_qsl(init_data, keep_blank_values=True))
         user_data = json.loads(parsed.get("user", "{}"))
-        return user_data.get("username", "")
+        username = user_data.get("username", "")
+        user_id = user_data.get("id", None)
+        return username, user_id
     except Exception:
-        return None
+        return None, None
 
 def check_access(init_data: str):
-    username = verify_init_data(init_data)
-    if not username:
+    username, user_id = verify_init_data(init_data)
+    # Проверяем по username
+    if username and username.lower() in {u.lower() for u in ALLOWED_USERS}:
+        return
+    # Проверяем по user_id (fallback если нет username)
+    if user_id and int(user_id) in ALLOWED_IDS:
+        return
+    # Нет доступа
+    if not username and not user_id:
         raise HTTPException(status_code=403, detail="Unauthorized: no user data")
-    if username.lower() not in {u.lower() for u in ALLOWED_USERS}:
-        raise HTTPException(status_code=403, detail=f"Access denied for @{username}")
+    raise HTTPException(status_code=403, detail=f"Access denied for @{username or user_id}")
 
 
 # Индексы колонок
