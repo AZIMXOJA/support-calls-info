@@ -5,12 +5,16 @@ python server.py
 """
 
 import csv
+import hashlib
+import hmac
 import io
+import json
 import os
 import requests
+import urllib.parse
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -36,8 +40,37 @@ AGENT_NAMES = {
 }
 
 REDIRECT_NUMBER = "5203"
+
+ALLOWED_USERS = {"azim_gws", "Svetlana_Tsoy_Smartup", "bts_lily"}
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 SUPPORT_NUMBERS = set(AGENT_NAMES.keys())
 ANSWERED        = {"NORMAL_CLEARING", "NORMAL_UNSPECIFIED"}
+
+# ── Auth ─────────────────────────────────
+
+def verify_init_data(init_data: str):
+    if not init_data or not BOT_TOKEN:
+        return None
+    try:
+        parsed = dict(urllib.parse.parse_qsl(init_data, keep_blank_values=True))
+        received_hash = parsed.pop("hash", "")
+        data_check = chr(10).join(f"{k}={v}" for k, v in sorted(parsed.items()))
+        secret_key = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
+        computed   = hmac.new(secret_key, data_check.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(computed, received_hash):
+            return None
+        user_data = json.loads(parsed.get("user", "{}"))
+        return user_data.get("username", "")
+    except Exception:
+        return None
+
+def check_access(init_data: str):
+    username = verify_init_data(init_data)
+    if not username:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    if username.lower() not in {u.lower() for u in ALLOWED_USERS}:
+        raise HTTPException(status_code=403, detail="Access denied")
+
 
 # Индексы колонок
 C_DIR=1; C_CALLER=2; C_CALLEE=3; C_START=4
@@ -239,7 +272,8 @@ def analyze(rows, start, end):
 # ── Routes ────────────────────────────────
 
 @app.get("/api/report")
-def get_report(period: str = "today", start: str = None, end: str = None):
+def get_report(period: str = "today", start: str = None, end: str = None, x_init_data: str = Header(default="")):
+    check_access(x_init_data)
     if start and end:
         try:
             s = datetime.strptime(start, "%Y-%m-%d")
@@ -253,7 +287,8 @@ def get_report(period: str = "today", start: str = None, end: str = None):
     return analyze(rows, s, e)
 
 @app.get("/api/compare")
-def get_compare(period1: str = "this_week", period2: str = "last_week"):
+def get_compare(period1: str = "this_week", period2: str = "last_week", x_init_data: str = Header(default="")):
+    check_access(x_init_data)
     rows = fetch_rows()
     today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     end   = today.replace(hour=23, minute=59, second=59)
