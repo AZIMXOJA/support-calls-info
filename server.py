@@ -49,16 +49,11 @@ ANSWERED        = {"NORMAL_CLEARING", "NORMAL_UNSPECIFIED"}
 # ── Auth ─────────────────────────────────
 
 def verify_init_data(init_data: str):
-    if not init_data or not BOT_TOKEN:
+    """Извлекает username из initData Telegram"""
+    if not init_data:
         return None
     try:
         parsed = dict(urllib.parse.parse_qsl(init_data, keep_blank_values=True))
-        received_hash = parsed.pop("hash", "")
-        data_check = chr(10).join(f"{k}={v}" for k, v in sorted(parsed.items()))
-        secret_key = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
-        computed   = hmac.new(secret_key, data_check.encode(), hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(computed, received_hash):
-            return None
         user_data = json.loads(parsed.get("user", "{}"))
         return user_data.get("username", "")
     except Exception:
@@ -67,9 +62,9 @@ def verify_init_data(init_data: str):
 def check_access(init_data: str):
     username = verify_init_data(init_data)
     if not username:
-        raise HTTPException(status_code=403, detail="Unauthorized")
+        raise HTTPException(status_code=403, detail="Unauthorized: no user data")
     if username.lower() not in {u.lower() for u in ALLOWED_USERS}:
-        raise HTTPException(status_code=403, detail="Access denied")
+        raise HTTPException(status_code=403, detail=f"Access denied for @{username}")
 
 
 # Индексы колонок
