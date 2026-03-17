@@ -257,14 +257,6 @@ function showPage(name, el){
 
 // ── Load ──
 async function loadData(){
-  // Check access first
-  if(tg && !tg.initData) {
-    document.querySelector('.content').innerHTML =
-      '<div class="access-denied"><div class="icon">⛔</div>' +
-      '<h2>Нет доступа</h2>' +
-      '<p>Этот дашборд доступен только через Telegram бота.</p></div>';
-    return;
-  }
   setLoading();
   try{
     const url = currentPeriod.startsWith('custom')
