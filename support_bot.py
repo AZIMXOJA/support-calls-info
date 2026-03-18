@@ -31,7 +31,7 @@ AGENT_NAMES = {
 REDIRECT_NUMBER = "5203"
 
 # Разрешённые пользователи (username без @)
-ALLOWED_USERS = {"azim_gws", "Svetlana_Tsoy_Smartup", "bts_lily", "umida_alimdjanova", "aptabovanilufar"}
+ALLOWED_USERS = {"azim_gws", "Svetlana_Tsoy_Smartup", "bts_lily", "umida_alimdjanova", "aptabovanilufar", "qahhor"}
 
 # URL Mini App (ngrok)
 MINI_APP_URL = "https://support-calls-info.onrender.com"
