@@ -41,7 +41,7 @@ AGENT_NAMES = {
 
 REDIRECT_NUMBER = "5203"
 
-ALLOWED_USERS = {"azim_gws", "Svetlana_Tsoy_Smartup", "bts_lily", "umida_alimdjanova"}
+ALLOWED_USERS = {"azim_gws", "Svetlana_Tsoy_Smartup", "bts_lily", "umida_alimdjanova", "aptabovanilufar"}
 # Fallback: разрешить по user_id (найди свой id через @userinfobot в Telegram)
 ALLOWED_IDS: set = {104419897}  # azim_gws
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
