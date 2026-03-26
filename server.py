@@ -30,7 +30,7 @@ AGENT_NAMES = {
     "316": "Nodir Baxtiyarov",
     "311": "Umida Alimdjanova",
     "312": "Salohiddin Jamoliddinov",
-    "317": "Xalilov Qaxramon",
+    "317": "Qaxramon Xalilov",
     "318": "Azimjon Ungarov",
     "319": "Bobomurod Xursandov",
     "321": "Mekhrali Zabitov",
